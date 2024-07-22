@@ -88,7 +88,6 @@ cmd="VBoxManage guestcontrol \"$VM_NAME\" run --exe \"$OFFICE_PATH\" --username 
 
 if [ -f "$1" ]; then
     WINDOWS_FILE=$(unix_to_windows_path "$1")
-    echo "Debug: Windows path = $WINDOWS_FILE"  # Add this line for debugging
     cmd+=" -- \"$WINDOWS_FILE\""
 fi
 
