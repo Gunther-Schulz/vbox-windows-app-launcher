@@ -1,23 +1,19 @@
 #!/bin/bash
 
+# Load configuration from ~/.config/vbox_office_launcher.conf
+CONFIG_FILE="$HOME/.config/vbox_office_launcher.conf"
+if [ -f "$CONFIG_FILE" ]; then
+    source "$CONFIG_FILE"
+else
+    echo "Configuration file not found: $CONFIG_FILE"
+    exit 1
+fi
+
 # -- CODE DEVELOPERS/CONTRIBUTORS -- andpy73, sbnwl, 3Pilif, TVG
 # https://forums.virtualbox.org/viewtopic.php?t=91799&sid=fe97378eec124475e838cf6ea5ea79e3&start=15
 # Dependencies: sudo pacman -S dunst
 
 # TEST:_ ./vmc.sh /home/g/hidrive/Öffentlich\ Planungsbüro\ Schulz/Projekte/potenzialanalye\ vorlage.docx    
-
-# Configuration variables
-VM_NAME="Win11"
-VM_USER="g"
-VM_PASSWORD="pwd"
-WORD_PATH="C:\\Program Files\\Microsoft Office\\root\\Office16\\WINWORD.EXE"
-EXCEL_PATH="C:\\Program Files\\Microsoft Office\\root\\Office16\\EXCEL.EXE"
-POWERPOINT_PATH="C:\\Program Files\\Microsoft Office\\root\\Office16\\POWERPNT.EXE"
-VM_SHARE_PATH="/home/g/"
-VM_DRIVE_LETTER="G:"
-AUTO_FOCUS=false # Set to false if you don't want automatic focus
-SCRIPT_TIMEOUT=6  # In seconds. We set this to the default timeout for notifications. this needs to be as long as the notification stays up.
-NOTIFICATION_TIMEOUT=$((SCRIPT_TIMEOUT * 1000))  # Notification timeout in milliseconds. This seems to be ignore by dustify actually
 
 # clear
 
@@ -76,13 +72,24 @@ get_office_app() {
     esac
 }
 
+# Function to convert Unix path to Windows path
+unix_to_windows_path() {
+    local unix_path="$1"
+    # Replace /home/g with G:
+    local windows_path=$(echo "$unix_path" | sed "s|^/home/g|$VM_DRIVE_LETTER|")
+    # Replace remaining forward slashes with backslashes
+    windows_path=$(echo "$windows_path" | sed 's|/|\\|g')
+    echo "$windows_path"
+}
+
 # Construct the VBoxManage command to start the appropriate Office application
 OFFICE_PATH=$(get_office_app "$1")
 cmd="VBoxManage guestcontrol \"$VM_NAME\" run --exe \"$OFFICE_PATH\" --username $VM_USER --password $VM_PASSWORD --wait-stdout --wait-stderr --timeout 30000"
 
 if [ -f "$1" ]; then
-    FILE=$(echo "$1" | sed "s|^$VM_SHARE_PATH|$VM_DRIVE_LETTER\\\\|; s|/|\\\\|g")
-    cmd+=" -- \"$FILE\""
+    WINDOWS_FILE=$(unix_to_windows_path "$1")
+    echo "Debug: Windows path = $WINDOWS_FILE"  # Add this line for debugging
+    cmd+=" -- \"$WINDOWS_FILE\""
 fi
 
 # Run the command to start Word in the background

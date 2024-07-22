@@ -6,6 +6,8 @@ A tool for launching Microsoft Office applications in a VirtualBox environment.
 
 vbox-office-launcher is a utility designed to seamlessly launch Microsoft Office applications within a VirtualBox virtual machine. This tool is particularly useful for users who need to run Office applications in an isolated environment or on systems where native installation is not possible or desired.
 
+This adds a feature that I was missing since I moved over from Parallel Desktop on macos to VirtualBox on Linux. Similar to the "Open in VM" feature in Parallel Desktop, this script allows you to open Office documents in a VirtualBox VM directly from the host system's file manager.
+
 ## Attribution
 
 This project was inspired by andpy73, sbnwl, 3Pilif, and TVG and is based on this forum thread: https://forums.virtualbox.org/viewtopic.php?t=91799&sid=fe97378eec124475e838cf6ea5ea79e3&start=15
