@@ -13,8 +13,6 @@ fi
 # https://forums.virtualbox.org/viewtopic.php?t=91799&sid=fe97378eec124475e838cf6ea5ea79e3&start=15
 # Dependencies: sudo pacman -S dunst
 
-# TEST:_ ./vmc.sh /home/g/hidrive/Öffentlich\ Planungsbüro\ Schulz/Projekte/potenzialanalye\ vorlage.docx    
-
 # clear
 
 # Function to check if a user is logged in
@@ -88,7 +86,6 @@ cmd="VBoxManage guestcontrol \"$VM_NAME\" run --exe \"$OFFICE_PATH\" --username 
 
 if [ -f "$1" ]; then
     WINDOWS_FILE=$(unix_to_windows_path "$1")
-    echo "Debug: Windows path = $WINDOWS_FILE"  # Add this line for debugging
     cmd+=" -- \"$WINDOWS_FILE\""
 fi
 
