@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Load configuration from ~/.config/vbox_office_launcher.conf
-CONFIG_FILE="$HOME/.config/vbox_office_launcher.conf"
+# Load configuration from ~/.config/vbox_app_launcher.conf
+CONFIG_FILE="$HOME/.config/vbox_app_launcher.conf"
 if [ -f "$CONFIG_FILE" ]; then
     source "$CONFIG_FILE"
 else
@@ -60,7 +60,7 @@ if ! ( vboxmanage showvminfo "$VM_NAME" | grep -c "running (since" ) > /dev/null
     done
 fi
 
-# Function to determine the Office application based on file extension
+# Function to determine the App application based on file extension
 get_windows_app() {
     local extension="${1##*.}"
     if [[ -n "${CUSTOM_APPS[".$extension"]}" ]]; then
@@ -118,7 +118,7 @@ focus_vm() {
 handle_notification() {
     if [ "$DUNSTIFY_AVAILABLE" = true ]; then
         app_name=$(basename "$APP_PATH" .EXE)
-        action=$(dunstify -A "focus,Focus VM" -t "$NOTIFICATION_TIMEOUT" "VB Office" "Virtualbox ${app_name} is starting...")
+        action=$(dunstify -A "focus,Focus VM" -t "$NOTIFICATION_TIMEOUT" "VB App" "Virtualbox ${app_name} is starting...")
         
         if [ "$action" = "focus" ] && [ "$WMCTRL_AVAILABLE" = true ]; then
             focus_vm

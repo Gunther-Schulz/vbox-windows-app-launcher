@@ -1,5 +1,5 @@
-# Configuration for vbox_office_launcher
-# Put this file as /home/USERNAME/.config/vbox_office_launcher.conf
+# Configuration for vbox_app_launcher
+# Put this file as /home/USERNAME/.config/vbox_app_launcher.conf
 
 VM_NAME="Win11" # Change Win11 to the name of your VM
 VM_USER="USERNAME" # Change USERNAME to the username of the user account in the VM
