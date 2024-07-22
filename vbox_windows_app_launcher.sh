@@ -16,11 +16,28 @@ unix_to_windows_path() {
     echo "$windows_path"
 }
 
+# Function to check if a file is already open
+is_file_open() {
+    local windows_file="$1"
+    local check_command="Get-Process | Where-Object { \$_.MainWindowTitle -like \"*$windows_file*\" } | Select-Object -First 1"
+    local result=$(VBoxManage guestcontrol "$VM_NAME" run --exe "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" --username "$VM_USER" --password "$VM_PASSWORD" --quiet -- -Command "$check_command")
+    if [ -n "$result" ]; then
+        return 0
+    else
+        return 1
+    fi
+}
+
 # Function to open a file using ShellExecute
 open_file_with_shell_execute() {
     local windows_file="$1"
-    local powershell_command="[System.Diagnostics.Process]::Start('$windows_file')"
-    VBoxManage guestcontrol "$VM_NAME" run --exe "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" --username "$VM_USER" --password "$VM_PASSWORD" --quiet -- -Command "$powershell_command"
+    if ! is_file_open "$windows_file"; then
+        local powershell_command="[System.Diagnostics.Process]::Start('$windows_file')"
+        VBoxManage guestcontrol "$VM_NAME" run --exe "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" --username "$VM_USER" --password "$VM_PASSWORD" --quiet -- -Command "$powershell_command"
+        sleep 2  # Add a small delay to allow the application to start
+    else
+        echo "File is already open: $windows_file"
+    fi
 }
 
 if [ -f "$1" ]; then
