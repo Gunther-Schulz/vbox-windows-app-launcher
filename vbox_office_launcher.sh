@@ -62,13 +62,12 @@ fi
 
 # Function to determine the Office application based on file extension
 get_office_app() {
-    case "${1##*.}" in
-        doc|docx) echo "$WORD_PATH" ;;
-        xls|xlsx) echo "$EXCEL_PATH" ;;
-        ppt|pptx) echo "$POWERPOINT_PATH" ;;
-        dwg|dxf) echo "$AUTOCAD_PATH" ;;
-        *) echo "$WORD_PATH" ;; # Default to Word if extension is unknown
-    esac
+    local extension="${1##*.}"
+    if [[ -n "${CUSTOM_APPS[".$extension"]}" ]]; then
+        echo "${CUSTOM_APPS[".$extension"]}"
+    else
+        echo "${CUSTOM_APPS[".doc"]}"  # Default to Word if extension is unknown
+    fi
 }
 
 # Function to convert Unix path to Windows path
