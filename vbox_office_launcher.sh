@@ -66,6 +66,7 @@ get_office_app() {
         doc|docx) echo "$WORD_PATH" ;;
         xls|xlsx) echo "$EXCEL_PATH" ;;
         ppt|pptx) echo "$POWERPOINT_PATH" ;;
+        dwg|dxf) echo "$AUTOCAD_PATH" ;;
         *) echo "$WORD_PATH" ;; # Default to Word if extension is unknown
     esac
 }
@@ -118,7 +119,7 @@ focus_vm() {
 handle_notification() {
     if [ "$DUNSTIFY_AVAILABLE" = true ]; then
         app_name=$(basename "$OFFICE_PATH" .EXE)
-        action=$(dunstify -A "focus,Focus VM" -t "$NOTIFICATION_TIMEOUT" "VB Office" "Virtualbox $app_name is starting...")
+        action=$(dunstify -A "focus,Focus VM" -t "$NOTIFICATION_TIMEOUT" "VB Office" "Virtualbox ${app_name} is starting...")
         
         if [ "$action" = "focus" ] && [ "$WMCTRL_AVAILABLE" = true ]; then
             focus_vm

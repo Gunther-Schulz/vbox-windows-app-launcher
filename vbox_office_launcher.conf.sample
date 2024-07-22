@@ -7,6 +7,7 @@ VM_PASSWORD="PASSWORD" # Change PASSWORD to the password of the user account in 
 WORD_PATH="C:\\Program Files\\Microsoft Office\\root\\Office16\\WINWORD.EXE" # Change the path to the path of the Word executable in the VM
 EXCEL_PATH="C:\\Program Files\\Microsoft Office\\root\\Office16\\EXCEL.EXE" # Change the path to the path of the Excel executable in the VM
 POWERPOINT_PATH="C:\\Program Files\\Microsoft Office\\root\\Office16\\POWERPNT.EXE" # Change the path to the path of the PowerPoint executable in the VM
+AUTOCAD_PATH="C:\\Program Files\\Autodesk\\AutoCAD 2023\\acad.exe" # Change the path to the path of the AutoCAD executable in the VM
 VM_SHARE_PATH="/home/USERNAME/" # Change USERNAME to your username
 VM_DRIVE_LETTER="G:" # Change G to the drive letter where you mount the local files system in your VM
 AUTO_FOCUS=false # Change false to true if you want the VM to automatically focus on the window
