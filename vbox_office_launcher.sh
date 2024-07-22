@@ -61,7 +61,7 @@ if ! ( vboxmanage showvminfo "$VM_NAME" | grep -c "running (since" ) > /dev/null
 fi
 
 # Function to determine the Office application based on file extension
-get_office_app() {
+get_windows_app() {
     local extension="${1##*.}"
     if [[ -n "${CUSTOM_APPS[".$extension"]}" ]]; then
         echo "${CUSTOM_APPS[".$extension"]}"
@@ -80,9 +80,9 @@ unix_to_windows_path() {
     echo "$windows_path"
 }
 
-# Construct the VBoxManage command to start the appropriate Office application
-OFFICE_PATH=$(get_office_app "$1")
-cmd="VBoxManage guestcontrol \"$VM_NAME\" run --exe \"$OFFICE_PATH\" --username $VM_USER --password $VM_PASSWORD --wait-stdout --wait-stderr --timeout 30000"
+# Construct the VBoxManage command to start the appropriate Windows application
+APP_PATH=$(get_windows_app "$1")
+cmd="VBoxManage guestcontrol \"$VM_NAME\" run --exe \"$APP_PATH\" --username $VM_USER --password $VM_PASSWORD --quiet"
 
 if [ -f "$1" ]; then
     WINDOWS_FILE=$(unix_to_windows_path "$1")
@@ -90,11 +90,11 @@ if [ -f "$1" ]; then
 fi
 
 # Run the command to start Word in the background
-eval "$cmd" &>/dev/null &
-word_pid=$!
+eval "$cmd &"
 
 # Check if Word started successfully
 if [ $? -ne 0 ]; then
+    echo "Failed to start the Windows application"
     exit 1
 fi
 
@@ -117,7 +117,7 @@ focus_vm() {
 # Update notification message
 handle_notification() {
     if [ "$DUNSTIFY_AVAILABLE" = true ]; then
-        app_name=$(basename "$OFFICE_PATH" .EXE)
+        app_name=$(basename "$APP_PATH" .EXE)
         action=$(dunstify -A "focus,Focus VM" -t "$NOTIFICATION_TIMEOUT" "VB Office" "Virtualbox ${app_name} is starting...")
         
         if [ "$action" = "focus" ] && [ "$WMCTRL_AVAILABLE" = true ]; then
@@ -137,6 +137,9 @@ if [ "$AUTO_FOCUS" = true ] && [ "$WMCTRL_AVAILABLE" = true ]; then
     focus_vm
 fi
 
+# Wait for the script timeout duration before exiting
+sleep "$SCRIPT_TIMEOUT"
+
 # Cleanup function
 cleanup() {
     if [ "$DUNSTIFY_AVAILABLE" = true ]; then
@@ -146,16 +149,5 @@ cleanup() {
 
 # Set trap for cleanup
 trap cleanup EXIT
-
-# Wait for the timeout
-if [ "$DUNSTIFY_AVAILABLE" = true ]; then
-    end_time=$((SECONDS + SCRIPT_TIMEOUT))
-    while [ $SECONDS -lt $end_time ]; do
-        if ! kill -0 $notification_pid 2>/dev/null; then
-            break
-        fi
-        sleep 1
-    done
-fi
 
 exit 0
