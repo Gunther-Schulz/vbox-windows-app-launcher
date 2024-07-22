@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Load configuration from ~/.config/vbox_office_launcher.conf
-CONFIG_FILE="$HOME/.config/vbox_office_launcher.conf"
+# Load configuration from ~/.config/vbox_app_launcher.conf
+CONFIG_FILE="$HOME/.config/vbox_app_launcher.conf"
 if [ -f "$CONFIG_FILE" ]; then
     source "$CONFIG_FILE"
 else
@@ -12,8 +12,6 @@ fi
 # -- CODE DEVELOPERS/CONTRIBUTORS -- andpy73, sbnwl, 3Pilif, TVG
 # https://forums.virtualbox.org/viewtopic.php?t=91799&sid=fe97378eec124475e838cf6ea5ea79e3&start=15
 # Dependencies: sudo pacman -S dunst
-
-# TEST:_ ./vmc.sh /home/g/hidrive/Öffentlich\ Planungsbüro\ Schulz/Projekte/potenzialanalye\ vorlage.docx    
 
 # clear
 
@@ -62,14 +60,14 @@ if ! ( vboxmanage showvminfo "$VM_NAME" | grep -c "running (since" ) > /dev/null
     done
 fi
 
-# Function to determine the Office application based on file extension
-get_office_app() {
-    case "${1##*.}" in
-        doc|docx) echo "$WORD_PATH" ;;
-        xls|xlsx) echo "$EXCEL_PATH" ;;
-        ppt|pptx) echo "$POWERPOINT_PATH" ;;
-        *) echo "$WORD_PATH" ;; # Default to Word if extension is unknown
-    esac
+# Function to determine the App application based on file extension
+get_windows_app() {
+    local extension="${1##*.}"
+    if [[ -n "${CUSTOM_APPS[".$extension"]}" ]]; then
+        echo "${CUSTOM_APPS[".$extension"]}"
+    else
+        echo "${CUSTOM_APPS[".doc"]}"  # Default to Word if extension is unknown
+    fi
 }
 
 # Function to convert Unix path to Windows path
@@ -82,9 +80,9 @@ unix_to_windows_path() {
     echo "$windows_path"
 }
 
-# Construct the VBoxManage command to start the appropriate Office application
-OFFICE_PATH=$(get_office_app "$1")
-cmd="VBoxManage guestcontrol \"$VM_NAME\" run --exe \"$OFFICE_PATH\" --username $VM_USER --password $VM_PASSWORD --wait-stdout --wait-stderr --timeout 30000"
+# Construct the VBoxManage command to start the appropriate Windows application
+APP_PATH=$(get_windows_app "$1")
+cmd="VBoxManage guestcontrol \"$VM_NAME\" run --exe \"$APP_PATH\" --username $VM_USER --password $VM_PASSWORD --quiet"
 
 if [ -f "$1" ]; then
     WINDOWS_FILE=$(unix_to_windows_path "$1")
@@ -92,11 +90,11 @@ if [ -f "$1" ]; then
 fi
 
 # Run the command to start Word in the background
-eval "$cmd" &>/dev/null &
-word_pid=$!
+eval "$cmd &"
 
 # Check if Word started successfully
 if [ $? -ne 0 ]; then
+    echo "Failed to start the Windows application"
     exit 1
 fi
 
@@ -119,8 +117,8 @@ focus_vm() {
 # Update notification message
 handle_notification() {
     if [ "$DUNSTIFY_AVAILABLE" = true ]; then
-        app_name=$(basename "$OFFICE_PATH" .EXE)
-        action=$(dunstify -A "focus,Focus VM" -t "$NOTIFICATION_TIMEOUT" "VB Office" "Virtualbox $app_name is starting...")
+        app_name=$(basename "$APP_PATH" .EXE)
+        action=$(dunstify -A "focus,Focus VM" -t "$NOTIFICATION_TIMEOUT" "VB App" "Virtualbox ${app_name} is starting...")
         
         if [ "$action" = "focus" ] && [ "$WMCTRL_AVAILABLE" = true ]; then
             focus_vm
@@ -139,6 +137,9 @@ if [ "$AUTO_FOCUS" = true ] && [ "$WMCTRL_AVAILABLE" = true ]; then
     focus_vm
 fi
 
+# Wait for the script timeout duration before exiting
+sleep "$SCRIPT_TIMEOUT"
+
 # Cleanup function
 cleanup() {
     if [ "$DUNSTIFY_AVAILABLE" = true ]; then
@@ -148,16 +149,5 @@ cleanup() {
 
 # Set trap for cleanup
 trap cleanup EXIT
-
-# Wait for the timeout
-if [ "$DUNSTIFY_AVAILABLE" = true ]; then
-    end_time=$((SECONDS + SCRIPT_TIMEOUT))
-    while [ $SECONDS -lt $end_time ]; do
-        if ! kill -0 $notification_pid 2>/dev/null; then
-            break
-        fi
-        sleep 1
-    done
-fi
 
 exit 0

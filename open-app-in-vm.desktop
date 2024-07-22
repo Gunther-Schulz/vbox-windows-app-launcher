@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Open in Windows VM
+Comment=Open files in associated Windows applications using a VM
+Exec=/home/g/vbox_app_launcher.sh %f
+Icon=virtualbox
+Terminal=false
+Categories=Office;Utility;
+MimeType=application/msword;application/vnd.openxmlformats-officedocument.wordprocessingml.document;application/vnd.ms-excel;application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;application/vnd.ms-powerpoint;application/vnd.openxmlformats-officedocument.presentationml.presentation;application/vnd.openxmlformats-officedocument.drawingml.drawing;application/pdf;application/x-autocad;image/vnd.dxf;
+X-Desktop-File-Install-Version=0.28
