@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Load configuration from ~/.config/vbox_app_launcher.conf
-CONFIG_FILE="$HOME/.config/vbox_app_launcher.conf"
+# Load configuration from ~/.config/vbox_windows_app_launcher.conf
+CONFIG_FILE="$HOME/.config/vbox_windows_app_launcher.conf"
 if [ -f "$CONFIG_FILE" ]; then
     source "$CONFIG_FILE"
 else
