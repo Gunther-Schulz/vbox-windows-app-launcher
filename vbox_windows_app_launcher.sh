@@ -9,90 +9,29 @@ else
     exit 1
 fi
 
-# -- CODE DEVELOPERS/CONTRIBUTORS -- andpy73, sbnwl, 3Pilif, TVG
-# https://forums.virtualbox.org/viewtopic.php?t=91799&sid=fe97378eec124475e838cf6ea5ea79e3&start=15
-# Dependencies: sudo pacman -S dunst
-
-# clear
-
-# Function to check if a user is logged in
-check_user_logged_in() {
-    local user_activity=$(VBoxManage guestproperty get "$VM_NAME" "/VirtualBox/GuestInfo/OS/LoggedInUsers" 2>/dev/null)
-    if [[ "$user_activity" == *"Value: 1"* ]]; then
-        return 0
-    else
-        return 1
-    fi
-}
-
-# Check if wmctrl is available
-if command -v wmctrl >/dev/null 2>&1; then
-    WMCTRL_AVAILABLE=true
-else
-    WMCTRL_AVAILABLE=false
-    AUTO_FOCUS=false  # Disable auto-focus if wmctrl is not available
-fi
-
-# Start VM and wait for it to be ready
-if ! ( vboxmanage showvminfo "$VM_NAME" | grep -c "running (since" ) > /dev/null 2>&1; then
-    vboxmanage startvm "$VM_NAME" --type separate > /dev/null
-    
-    # Set a timeout (in seconds)
-    TIMEOUT=300  # 5 minutes
-    start_time=$(date +%s)
-    
-    # Wait for VM to be running and user to be logged in
-    while true; do
-        current_time=$(date +%s)
-        elapsed=$((current_time - start_time))
-        
-        if [ $elapsed -ge $TIMEOUT ]; then
-            exit 1
-        fi
-        
-        vm_state=$(vboxmanage showvminfo "$VM_NAME" --machinereadable | grep ^VMState=)
-
-        if [[ "$vm_state" == 'VMState="running"' ]] && check_user_logged_in; then
-            break
-        fi
-        
-        sleep 5
-    done
-fi
-
-# Function to determine the App application based on file extension
-get_windows_app() {
-    local extension="${1##*.}"
-    if [[ -n "${CUSTOM_APPS[".$extension"]}" ]]; then
-        echo "${CUSTOM_APPS[".$extension"]}"
-    else
-        echo "${CUSTOM_APPS[".doc"]}"  # Default to Word if extension is unknown
-    fi
-}
-
 # Function to convert Unix path to Windows path
 unix_to_windows_path() {
     local unix_path="$1"
-    # Replace /home/g with G:
-    local windows_path=$(echo "$unix_path" | sed "s|^/home/g|$VM_DRIVE_LETTER|")
-    # Replace remaining forward slashes with backslashes
-    windows_path=$(echo "$windows_path" | sed 's|/|\\|g')
+    local windows_path=$(echo "$unix_path" | sed "s|^/home/g|$VM_DRIVE_LETTER|" | sed 's|/|\\|g')
     echo "$windows_path"
 }
 
-# Construct the VBoxManage command to start the appropriate Windows application
-APP_PATH=$(get_windows_app "$1")
-cmd="VBoxManage guestcontrol \"$VM_NAME\" run --exe \"$APP_PATH\" --username $VM_USER --password $VM_PASSWORD --quiet"
+# Function to open a file using ShellExecute
+open_file_with_shell_execute() {
+    local windows_file="$1"
+    local powershell_command="[System.Diagnostics.Process]::Start('$windows_file')"
+    VBoxManage guestcontrol "$VM_NAME" run --exe "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" --username "$VM_USER" --password "$VM_PASSWORD" --quiet -- -Command "$powershell_command"
+}
 
 if [ -f "$1" ]; then
     WINDOWS_FILE=$(unix_to_windows_path "$1")
-    cmd+=" -- \"$WINDOWS_FILE\""
+    open_file_with_shell_execute "$WINDOWS_FILE"
+else
+    echo "File not found: $1"
+    exit 1
 fi
 
-# Run the command to start Word in the background
-eval "$cmd &"
-
-# Check if Word started successfully
+# Check if the application started successfully
 if [ $? -ne 0 ]; then
     echo "Failed to start the Windows application"
     exit 1
