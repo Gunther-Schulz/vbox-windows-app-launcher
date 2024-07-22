@@ -9,6 +9,20 @@ else
     exit 1
 fi
 
+# Check if wmctrl is available
+if command -v wmctrl >/dev/null 2>&1; then
+    WMCTRL_AVAILABLE=true
+else
+    WMCTRL_AVAILABLE=false
+fi
+
+# Check if dunstify is available
+if command -v dunstify >/dev/null 2>&1; then
+    DUNSTIFY_AVAILABLE=true
+else
+    DUNSTIFY_AVAILABLE=false
+fi
+
 # Function to convert Unix path to Windows path
 unix_to_windows_path() {
     local unix_path="$1"
@@ -40,6 +54,16 @@ open_file_with_shell_execute() {
     fi
 }
 
+# Function to focus the VM window
+focus_vm() {
+    if [ "$WMCTRL_AVAILABLE" = true ]; then
+        window_id=$(wmctrl -l | grep "$VM_NAME" | awk '{print $1;}' | head -1)
+        if [ -n "$window_id" ]; then
+            wmctrl -ia "$window_id"
+        fi
+    fi
+}
+
 if [ -f "$1" ]; then
     WINDOWS_FILE=$(unix_to_windows_path "$1")
     open_file_with_shell_execute "$WINDOWS_FILE"
@@ -54,43 +78,31 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-# Check if dunstify is available
-if command -v dunstify >/dev/null 2>&1; then
-    DUNSTIFY_AVAILABLE=true
-else
-    DUNSTIFY_AVAILABLE=false
-fi
-
-# Function to focus the VM window
-focus_vm() {
-    if [ "$WMCTRL_AVAILABLE" = true ]; then
-        window_id=$(wmctrl -l | grep "$VM_NAME" | awk '{print $1;}' | head -1)
-        sleep 1
-        wmctrl -ia $window_id
-    fi
-}
-
 # Update notification message
 handle_notification() {
     if [ "$DUNSTIFY_AVAILABLE" = true ]; then
-        app_name=$(basename "$APP_PATH" .EXE)
+        app_name=$(basename "$1")
         action=$(dunstify -A "focus,Focus VM" -t "$NOTIFICATION_TIMEOUT" "VB App" "Virtualbox ${app_name} is starting...")
         
-        if [ "$action" = "focus" ] && [ "$WMCTRL_AVAILABLE" = true ]; then
-            focus_vm
+        if [ "$action" = "focus" ]; then
+            if [ "$WMCTRL_AVAILABLE" = true ]; then
+                focus_vm
+            fi
         fi
     fi
 }
 
 # Start notification handling in background
 if [ "$DUNSTIFY_AVAILABLE" = true ]; then
-    handle_notification &
+    handle_notification "$1" &
     notification_pid=$!
 fi
 
 # Focus the VM window if AUTO_FOCUS is true and wmctrl is available
-if [ "$AUTO_FOCUS" = true ] && [ "$WMCTRL_AVAILABLE" = true ]; then
-    focus_vm
+if [ "$AUTO_FOCUS" = true ]; then
+    if [ "$WMCTRL_AVAILABLE" = true ]; then
+        focus_vm
+    fi
 fi
 
 # Wait for the script timeout duration before exiting
