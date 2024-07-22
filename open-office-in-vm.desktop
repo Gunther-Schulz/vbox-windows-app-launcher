@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Open MS Office in VM
+Comment=Open Microsoft Office documents in Windows VM
+Exec=/home/g/vbox_office_launcher.sh %f # Path to your script
+Icon=ms-office
+Terminal=false
+Categories=Office;WordProcessor;Spreadsheet;Presentation;
+MimeType=application/msword;application/vnd.openxmlformats-officedocument.wordprocessingml.document;application/vnd.ms-excel;application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;application/vnd.ms-powerpoint;application/vnd.openxmlformats-officedocument.presentationml.presentation;
+X-Desktop-File-Install-Version=0.27
