@@ -60,6 +60,49 @@ focus_vm() {
     fi
 }
 
+# Function to check if a user is logged in
+check_user_logged_in() {
+    local user_activity=$(VBoxManage guestproperty get "$VM_NAME" "/VirtualBox/GuestInfo/OS/LoggedInUsers" 2>/dev/null)
+    if [[ "$user_activity" == *"Value: 1"* ]]; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+# Function to start VM and wait for it to be ready
+start_vm_and_wait() {
+    if ! ( VBoxManage showvminfo "$VM_NAME" | grep -c "running (since" ) > /dev/null 2>&1; then
+        VBoxManage startvm "$VM_NAME" --type separate > /dev/null
+        
+        # Set a timeout (in seconds)
+        TIMEOUT=300  # 5 minutes
+        start_time=$(date +%s)
+        
+        # Wait for VM to be running and user to be logged in
+        while true; do
+            current_time=$(date +%s)
+            elapsed=$((current_time - start_time))
+            
+            if [ $elapsed -ge $TIMEOUT ]; then
+                echo "Timeout waiting for VM to start and user to log in"
+                exit 1
+            fi
+            
+            vm_state=$(VBoxManage showvminfo "$VM_NAME" --machinereadable | grep ^VMState=)
+
+            if [[ "$vm_state" == 'VMState="running"' ]] && check_user_logged_in; then
+                break
+            fi
+            
+            sleep 5
+        done
+    fi
+}
+
+# Start VM and wait for it to be ready before proceeding
+start_vm_and_wait
+
 if [ -f "$1" ]; then
     WINDOWS_FILE=$(unix_to_windows_path "$1")
     open_file_with_shell_execute "$WINDOWS_FILE"

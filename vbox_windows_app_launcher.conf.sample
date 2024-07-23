@@ -9,15 +9,3 @@ VM_DRIVE_LETTER="G:" # Change G to the drive letter where you mount the local fi
 AUTO_FOCUS=false # Change false to true if you want the VM to automatically focus on the window
 SCRIPT_TIMEOUT=6 # Change the timeout for the script in seconds.
 NOTIFICATION_TIMEOUT=$((SCRIPT_TIMEOUT * 1000)) # Change the timeout for the notification in milliseconds.
-
-# Define custom applications and their file associations
-declare -A CUSTOM_APPS
-CUSTOM_APPS[".doc"]="C:\\Program Files\\Microsoft Office\\root\\Office16\\WINWORD.EXE"
-CUSTOM_APPS[".docx"]="C:\\Program Files\\Microsoft Office\\root\\Office16\\WINWORD.EXE"
-CUSTOM_APPS[".xls"]="C:\\Program Files\\Microsoft Office\\root\\Office16\\EXCEL.EXE"
-CUSTOM_APPS[".xlsx"]="C:\\Program Files\\Microsoft Office\\root\\Office16\\EXCEL.EXE"
-CUSTOM_APPS[".ppt"]="C:\\Program Files\\Microsoft Office\\root\\Office16\\POWERPNT.EXE"
-CUSTOM_APPS[".pptx"]="C:\\Program Files\\Microsoft Office\\root\\Office16\\POWERPNT.EXE"
-CUSTOM_APPS[".dwg"]="C:\\Program Files\\Autodesk\\AutoCAD 2023\\acad.exe"
-CUSTOM_APPS[".dxf"]="C:\\Program Files\\Autodesk\\AutoCAD 2023\\acad.exe"
-# Add more custom applications and their file associations as needed
