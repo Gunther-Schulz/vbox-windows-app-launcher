@@ -45,13 +45,9 @@ is_file_open() {
 # Function to open a file using ShellExecute
 open_file_with_shell_execute() {
     local windows_file="$1"
-    if ! is_file_open "$windows_file"; then
-        local powershell_command="[System.Diagnostics.Process]::Start('$windows_file')"
-        VBoxManage guestcontrol "$VM_NAME" run --exe "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" --username "$VM_USER" --password "$VM_PASSWORD" --quiet -- -Command "$powershell_command"
-        sleep 2  # Add a small delay to allow the application to start
-    else
-        echo "File is already open: $windows_file"
-    fi
+    local powershell_command="Invoke-Item '$windows_file'"
+    VBoxManage guestcontrol "$VM_NAME" run --exe "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" --username "$VM_USER" --password "$VM_PASSWORD" --quiet -- -Command "$powershell_command"
+    sleep 2  # Add a small delay to allow the application to start
 }
 
 # Function to focus the VM window
@@ -67,8 +63,11 @@ focus_vm() {
 if [ -f "$1" ]; then
     WINDOWS_FILE=$(unix_to_windows_path "$1")
     open_file_with_shell_execute "$WINDOWS_FILE"
+elif [ -d "$1" ]; then
+    WINDOWS_PATH=$(unix_to_windows_path "$1")
+    open_file_with_shell_execute "$WINDOWS_PATH"
 else
-    echo "File not found: $1"
+    echo "File or directory not found: $1"
     exit 1
 fi
 
