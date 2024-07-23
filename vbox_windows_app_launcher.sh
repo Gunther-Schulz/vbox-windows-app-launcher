@@ -29,19 +29,6 @@ unix_to_windows_path() {
     local windows_path=$(echo "$unix_path" | sed "s|^/home/g|$VM_DRIVE_LETTER|" | sed 's|/|\\|g')
     echo "$windows_path"
 }
-
-# Function to check if a file is already open
-is_file_open() {
-    local windows_file="$1"
-    local check_command="Get-Process | Where-Object { \$_.MainWindowTitle -like \"*$windows_file*\" } | Select-Object -First 1"
-    local result=$(VBoxManage guestcontrol "$VM_NAME" run --exe "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" --username "$VM_USER" --password "$VM_PASSWORD" --quiet -- -Command "$check_command")
-    if [ -n "$result" ]; then
-        return 0
-    else
-        return 1
-    fi
-}
-
 # Function to open a file using ShellExecute
 open_file_with_shell_execute() {
     local windows_file="$1"
