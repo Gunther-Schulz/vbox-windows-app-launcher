@@ -25,15 +25,15 @@ This project was inspired by andpy73, sbnwl, 3Pilif, and TVG and is based on thi
 
 1. Clone this repository or download the script files.
 2. Make sure you have VirtualBox installed on your system.
-3. Install the optional dependencies:
-   ```
+3. Install the optional dependencie if you want auto-focus or desktop notifications. For example in Arch Linux:
+   ```bash
    sudo pacman -S dunst wmctrl
    ```
    - dunst: notification daemon used for desktop notifications
    - wmctrl: window manager control used for automatic window focus
 4. Copy `vbox_windows_app_launcher.conf.sample` to `~/.config/vbox_windows_app_launcher.conf` and edit it with your settings.
 5. Make the script executable:
-   ```
+   ```bash
    chmod +x vbox_windows_app_launcher.sh
    ```
 6. Edit the `open-windows-app-in-vm.desktop` file:
@@ -43,24 +43,27 @@ This project was inspired by andpy73, sbnwl, 3Pilif, and TVG and is based on thi
      ```
 7. Install the desktop file for easy file opening:
    - For local installation (current user only):
-     ```
+     ```bash
      mkdir -p ~/.local/share/applications
      cp open-windows-app-in-vm.desktop ~/.local/share/applications/
      ```
    - For global installation (all users, requires sudo):
-     ```
+     ```bash
      sudo cp open-windows-app-in-vm.desktop /usr/share/applications/
      ```
 8. Update the desktop database:
-   ```
+   ```bash
    update-desktop-database ~/.local/share/applications
    ```
 
 ## Usage
 
 1. Configure your settings in `~/.config/vbox_windows_app_launcher.conf`.
-2. Double-click on any file or folder to open it in the VM, or run the script directly:
-   ```
+
+2. Double-click on any file or folder to open it in the VM
+
+or run the script directly:
+   ```bash
    ./vbox_windows_app_launcher.sh /path/to/your/file_or_folder
    ```
 
@@ -90,6 +93,19 @@ Check out the `vbox_windows_app_launcher.conf.sample` file for more details.
 ### Optional dependencies
 - dunst (for notifications)
 - wmctrl (for window management)
+
+## Troubleshooting
+If you encouter the following error:
+```
+VBoxManage: error: Waiting for guest process failed: The specified user account on the guest is restricted and can't be used to logon
+VBoxManage: error: Details: code VBOX_E_IPRT_ERROR (0x80bb0005), component GuestSessionWrap, interface IGuestSession, callee nsISupports
+VBoxManage: error: Context: "WaitForArray(ComSafeArrayAsInParam(aSessionWaitFlags), 30 * 1000, &enmWaitResult)" at line 770 of file VBoxManageGuestCtrl.cpp
+```
+
+That can potentially mean that your password expired and that you need to reset it in the VM. You can do that while being logged in and in an administrator command prompt:
+```bash
+net user WindowsAccountName *
+```
 
 ## Contributing
 
