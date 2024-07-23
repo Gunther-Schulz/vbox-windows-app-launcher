@@ -91,6 +91,19 @@ Check out the `vbox_windows_app_launcher.conf.sample` file for more details.
 - dunst (for notifications)
 - wmctrl (for window management)
 
+## Troubleshooting
+If you encouter the following error:
+```
+VBoxManage: error: Waiting for guest process failed: The specified user account on the guest is restricted and can't be used to logon
+VBoxManage: error: Details: code VBOX_E_IPRT_ERROR (0x80bb0005), component GuestSessionWrap, interface IGuestSession, callee nsISupports
+VBoxManage: error: Context: "WaitForArray(ComSafeArrayAsInParam(aSessionWaitFlags), 30 * 1000, &enmWaitResult)" at line 770 of file VBoxManageGuestCtrl.cpp
+```
+
+That can potentially mean taht your password expired and that you need to reset it in the VM. You can do that while being logged in and in an administrator command prompt:
+```bash
+net user WindowsAccountName *
+```
+
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request. This project was initially developed with contributions from andpy73, sbnwl, 3Pilif, and TVG.
