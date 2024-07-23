@@ -45,13 +45,9 @@ is_file_open() {
 # Function to open a file using ShellExecute
 open_file_with_shell_execute() {
     local windows_file="$1"
-    if ! is_file_open "$windows_file"; then
-        local powershell_command="[System.Diagnostics.Process]::Start('$windows_file')"
-        VBoxManage guestcontrol "$VM_NAME" run --exe "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" --username "$VM_USER" --password "$VM_PASSWORD" --quiet -- -Command "$powershell_command"
-        sleep 2  # Add a small delay to allow the application to start
-    else
-        echo "File is already open: $windows_file"
-    fi
+    local powershell_command="Invoke-Item '$windows_file'"
+    VBoxManage guestcontrol "$VM_NAME" run --exe "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" --username "$VM_USER" --password "$VM_PASSWORD" --quiet -- -Command "$powershell_command"
+    sleep 2  # Add a small delay to allow the application to start
 }
 
 # Function to focus the VM window
@@ -75,13 +71,15 @@ check_user_logged_in() {
 }
 
 # Function to start VM and wait for it to be ready
-start_vm_if_needed() {
+start_vm_and_wait() {
     if ! ( VBoxManage showvminfo "$VM_NAME" | grep -c "running (since" ) > /dev/null 2>&1; then
         VBoxManage startvm "$VM_NAME" --type separate > /dev/null
         
+        # Set a timeout (in seconds)
         TIMEOUT=300  # 5 minutes
         start_time=$(date +%s)
         
+        # Wait for VM to be running and user to be logged in
         while true; do
             current_time=$(date +%s)
             elapsed=$((current_time - start_time))
@@ -102,12 +100,18 @@ start_vm_if_needed() {
     fi
 }
 
+# Start VM and wait for it to be ready before proceeding
+start_vm_and_wait
+
 if [ -f "$1" ]; then
     start_vm_if_needed  # Add this line to start the VM if needed
     WINDOWS_FILE=$(unix_to_windows_path "$1")
     open_file_with_shell_execute "$WINDOWS_FILE"
+elif [ -d "$1" ]; then
+    WINDOWS_PATH=$(unix_to_windows_path "$1")
+    open_file_with_shell_execute "$WINDOWS_PATH"
 else
-    echo "File not found: $1"
+    echo "File or directory not found: $1"
     exit 1
 fi
 

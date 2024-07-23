@@ -17,7 +17,6 @@ This project was inspired by andpy73, sbnwl, 3Pilif, and TVG and is based on thi
 - Easy launch of Windows applications in a VirtualBox VM
 - Seamless integration with host system
 - Configurable VM settings
-- Support for various file types (e.g., Word, Excel, PowerPoint, AutoCAD)
 - Automatic VM startup and user login detection
 - Optional automatic window focus and desktop notifications
 - Desktop integration for easy file opening
@@ -60,10 +59,12 @@ This project was inspired by andpy73, sbnwl, 3Pilif, and TVG and is based on thi
 ## Usage
 
 1. Configure your settings in `~/.config/vbox_windows_app_launcher.conf`.
-2. Double-click on a supported document to open it in the VM, or run the script directly:
+2. Double-click on any file or folder to open it in the VM, or run the script directly:
    ```
-   ./vbox_windows_app_launcher.sh /path/to/your/document.docx
+   ./vbox_windows_app_launcher.sh /path/to/your/file_or_folder
    ```
+
+The script will automatically use the appropriate application in the VM to open the file or folder.
 
 ## Configuration
 
@@ -77,7 +78,6 @@ Edit `~/.config/vbox_windows_app_launcher.conf` with your specific settings:
 - `AUTO_FOCUS`: Set to true/false to enable/disable automatic window focus
 - `SCRIPT_TIMEOUT`: Timeout for the script in seconds
 - `NOTIFICATION_TIMEOUT`: Timeout for notifications in milliseconds
-- `CUSTOM_APPS`: Associative array mapping file extensions to Windows application paths
 
 Check out the `vbox_windows_app_launcher.conf.sample` file for more details.
 
