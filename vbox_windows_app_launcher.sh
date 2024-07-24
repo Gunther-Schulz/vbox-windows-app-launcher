@@ -87,11 +87,9 @@ start_vm_and_wait() {
     fi
 }
 
-# Start VM and wait for it to be ready before proceeding
-start_vm_and_wait
 
 if [ -f "$1" ]; then
-    start_vm_if_needed  # Add this line to start the VM if needed
+    start_vm_and_wait # Add this line to start the VM if needed
     WINDOWS_FILE=$(unix_to_windows_path "$1")
     open_file_with_shell_execute "$WINDOWS_FILE"
 elif [ -d "$1" ]; then
@@ -112,9 +110,9 @@ fi
 handle_notification() {
     if [ "$DUNSTIFY_AVAILABLE" = true ]; then
         app_name=$(basename "$1")
-        action=$(dunstify -A "focus,Focus VM" -t "$NOTIFICATION_TIMEOUT" "VB App" "Virtualbox ${app_name} is starting...")
+        action=$(dunstify -A "default,Focus VM" -t "$NOTIFICATION_TIMEOUT" "VB App" "Virtualbox ${app_name} is starting...")
         
-        if [ "$action" = "focus" ]; then
+        if [ "$action" = "default" ]; then
             if [ "$WMCTRL_AVAILABLE" = true ]; then
                 focus_vm
             fi
