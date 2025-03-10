@@ -1,5 +1,43 @@
 #!/bin/bash
 
+# Script version
+VERSION="0.1.7"
+
+# Function to display version
+show_version() {
+    echo "vbox_windows_app_launcher version $VERSION"
+    exit 0
+}
+
+# Function to display help
+show_help() {
+    echo "Usage: $(basename "$0") [OPTION] [FILE|DIRECTORY]"
+    echo
+    echo "Launch Windows applications in a VirtualBox VM to open files or directories."
+    echo
+    echo "Options:"
+    echo "  -h, --help     Display this help message and exit"
+    echo "  -v, --version  Display version information and exit"
+    echo
+    echo "Examples:"
+    echo "  $(basename "$0") document.docx     Open document.docx with the associated Windows application"
+    echo "  $(basename "$0") ~/Pictures/       Open the Pictures directory in Windows Explorer"
+    echo
+    echo "Configuration file: ~/.config/vbox_windows_app_launcher.conf"
+    exit 0
+}
+
+# Check for version or help flags
+if [ "$1" = "-v" ] || [ "$1" = "--version" ]; then
+    show_version
+elif [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
+    show_help
+elif [ -z "$1" ]; then
+    echo "Error: No file or directory specified."
+    echo "Try '$(basename "$0") --help' for more information."
+    exit 1
+fi
+
 # Load configuration from ~/.config/vbox_windows_app_launcher.conf
 CONFIG_FILE="$HOME/.config/vbox_windows_app_launcher.conf"
 if [ -f "$CONFIG_FILE" ]; then
