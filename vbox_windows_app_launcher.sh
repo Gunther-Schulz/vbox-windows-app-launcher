@@ -1,5 +1,43 @@
 #!/bin/bash
 
+# Script version
+VERSION="0.1.7"
+
+# Function to display version
+show_version() {
+    echo "vbox_windows_app_launcher version $VERSION"
+    exit 0
+}
+
+# Function to display help
+show_help() {
+    echo "Usage: $(basename "$0") [OPTION] [FILE|DIRECTORY]"
+    echo
+    echo "Launch Windows applications in a VirtualBox VM to open files or directories."
+    echo
+    echo "Options:"
+    echo "  -h, --help     Display this help message and exit"
+    echo "  -v, --version  Display version information and exit"
+    echo
+    echo "Examples:"
+    echo "  $(basename "$0") document.docx     Open document.docx with the associated Windows application"
+    echo "  $(basename "$0") ~/Pictures/       Open the Pictures directory in Windows Explorer"
+    echo
+    echo "Configuration file: ~/.config/vbox_windows_app_launcher.conf"
+    exit 0
+}
+
+# Check for version or help flags
+if [ "$1" = "-v" ] || [ "$1" = "--version" ]; then
+    show_version
+elif [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
+    show_help
+elif [ -z "$1" ]; then
+    echo "Error: No file or directory specified."
+    echo "Try '$(basename "$0") --help' for more information."
+    exit 1
+fi
+
 # Load configuration from ~/.config/vbox_windows_app_launcher.conf
 CONFIG_FILE="$HOME/.config/vbox_windows_app_launcher.conf"
 if [ -f "$CONFIG_FILE" ]; then
@@ -23,6 +61,25 @@ else
     DUNSTIFY_AVAILABLE=false
 fi
 
+# Check if notify-send is available
+if command -v notify-send >/dev/null 2>&1; then
+    NOTIFY_SEND_AVAILABLE=true
+else
+    NOTIFY_SEND_AVAILABLE=false
+fi
+
+# Function to show error notification
+show_error_notification() {
+    local error_message="$1"
+    if [ "$DUNSTIFY_AVAILABLE" = true ]; then
+        dunstify -u critical -t 15000 "VB App Error" "$error_message"
+    elif [ "$NOTIFY_SEND_AVAILABLE" = true ]; then
+        notify-send -u critical -t 15000 "VB App Error" "$error_message"
+    else
+        echo "Error: $error_message"
+    fi
+}
+
 # Function to convert Unix path to Windows path
 unix_to_windows_path() {
     local unix_path="$1"
@@ -35,7 +92,30 @@ open_file_with_shell_execute() {
     local windows_file="$1"
     local powershell_command="Start-Process '$windows_file'"
     echo "Debug: Running PowerShell command: $powershell_command" >&2
-    VBoxManage guestcontrol "$VM_NAME" run --exe "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" --username "$VM_USER" --password "$VM_PASSWORD" --quiet -- -Command "$powershell_command"
+
+    # Run the command and capture output and exit code
+    output=$(VBoxManage guestcontrol "$VM_NAME" run --exe "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" --username "$VM_USER" --password "$VM_PASSWORD" --quiet -- -Command "$powershell_command" 2>&1)
+    exit_code=$?
+
+    # Check for password or account issues
+    if [ $exit_code -ne 0 ]; then
+        if [[ "$output" == *"account on the guest is restricted"* ]] || [[ "$output" == *"can't be used to logon"* ]] || [[ "$output" == *"was not able to logon on guest"* ]]; then
+            show_error_notification "Windows user account issue detected. Your password may have expired or the account is restricted. Please reset your password in Windows."
+            echo "Error: Windows user account issue detected. Your password may have expired or the account is restricted." >&2
+            echo "Please reset your password in Windows and update it in $CONFIG_FILE" >&2
+            exit 1
+        elif [[ "$output" == *"Authentication failure"* ]]; then
+            show_error_notification "Authentication failed. Your password may be incorrect. Please check your password in the configuration file."
+            echo "Error: Authentication failed. Your password may be incorrect." >&2
+            echo "Please check your password in $CONFIG_FILE" >&2
+            exit 1
+        else
+            show_error_notification "Error executing command in Windows VM: $output"
+            echo "Error executing command in Windows VM: $output" >&2
+            exit 1
+        fi
+    fi
+
     if [ -n "$APP_LOAD_DELAY" ] && [ "$APP_LOAD_DELAY" -gt 0 ]; then
         echo "Debug: Sleeping for APP_LOAD_DELAY: $APP_LOAD_DELAY seconds" >&2
         sleep "$APP_LOAD_DELAY"  # Wait for the specified delay
@@ -67,28 +147,29 @@ start_vm_and_wait() {
     if ! ( VBoxManage showvminfo "$VM_NAME" | grep -c "running (since" ) > /dev/null 2>&1; then
         echo "Debug: Starting VM with GUI" >&2
         VBoxManage startvm "$VM_NAME" --type gui > /dev/null
-        
+
         # Set a timeout (in seconds)
         TIMEOUT=300  # 5 minutes
         start_time=$(date +%s)
-        
+
         # Wait for VM to be running and user to be logged in
         while true; do
             current_time=$(date +%s)
             elapsed=$((current_time - start_time))
-            
+
             if [ $elapsed -ge $TIMEOUT ]; then
+                show_error_notification "Timeout waiting for VM to start and user to log in"
                 echo "Timeout waiting for VM to start and user to log in"
                 exit 1
             fi
-            
+
             vm_state=$(VBoxManage showvminfo "$VM_NAME" --machinereadable | grep ^VMState=)
 
             if [[ "$vm_state" == 'VMState="running"' ]] && check_user_logged_in; then
                 echo "Debug: VM is running and user is logged in" >&2
                 break
             fi
-            
+
             sleep 5
         done
     else
@@ -98,20 +179,23 @@ start_vm_and_wait() {
 
 # Function to update notification message
 handle_notification() {
+    app_name=$(basename "$1")
+    echo "Debug: Showing notification for app: $app_name" >&2
+
     if [ "$DUNSTIFY_AVAILABLE" = true ]; then
-        app_name=$(basename "$1")
-        echo "Debug: Showing notification for app: $app_name" >&2
         dunstify -A "default,Focus VM" -t "$NOTIFICATION_TIMEOUT" "VB App" "Virtualbox ${app_name} is ready."
-        
-        # Wait for notification timeout
-        echo "Debug: Sleeping for NOTIFICATION_TIMEOUT: $((NOTIFICATION_TIMEOUT / 1000)) seconds" >&2
-        sleep $((NOTIFICATION_TIMEOUT / 1000))
-        
-        if [ "$AUTO_FOCUS" = true ] && [ "$WMCTRL_AVAILABLE" = true ]; then
-            echo "Debug: Focusing VM window" >&2
-            focus_vm
-            echo "Debug: VM window focused" >&2
-        fi
+    elif [ "$NOTIFY_SEND_AVAILABLE" = true ]; then
+        notify-send -t "$NOTIFICATION_TIMEOUT" "VB App" "Virtualbox ${app_name} is ready."
+    fi
+
+    # Wait for notification timeout
+    echo "Debug: Sleeping for NOTIFICATION_TIMEOUT: $((NOTIFICATION_TIMEOUT / 1000)) seconds" >&2
+    sleep $((NOTIFICATION_TIMEOUT / 1000))
+
+    if [ "$AUTO_FOCUS" = true ] && [ "$WMCTRL_AVAILABLE" = true ]; then
+        echo "Debug: Focusing VM window" >&2
+        focus_vm
+        echo "Debug: VM window focused" >&2
     fi
 }
 
