@@ -1,2 +1,0 @@
-Example file for testing vbox-windows-app-launcher.
-Open this in the Windows VM to verify the launcher works.
