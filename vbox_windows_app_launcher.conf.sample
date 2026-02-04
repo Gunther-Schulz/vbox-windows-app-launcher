@@ -12,10 +12,12 @@ VM_PASSWORD="PASSWORD" # Password for the VM user
 # VM_SHARE_PATH_2="/path/on/host/to/share2"
 # VM_DRIVE_LETTER_2="H:"
 AUTO_FOCUS=false # Set to true to auto-focus the VM window after opening a file
+# Notification: SCRIPT_TIMEOUT is legacy (used to derive NOTIFICATION_TIMEOUT if unset). NOTIFICATION_TIMEOUT=display time in ms (0 = server default / until dismissed; script only blocks when AUTO_FOCUS=true).
 SCRIPT_TIMEOUT=6
 NOTIFICATION_TIMEOUT=$((SCRIPT_TIMEOUT * 1000))
 # Optional (defaults shown):
 # VM_START_TIMEOUT=300
 # VM_START_POLL_INTERVAL=5
 # ERROR_NOTIFICATION_TIMEOUT=15000
+# NOTIFICATION_FOCUS_DELAY=0   # Seconds to wait before focusing VM when AUTO_FOCUS=true (0 = focus immediately; set 1–2 for a short pause)
 # VM_POWERSHELL_EXE="C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe"

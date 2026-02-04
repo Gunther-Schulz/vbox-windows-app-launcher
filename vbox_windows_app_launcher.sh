@@ -82,7 +82,7 @@ else
     NOTIFY_SEND_AVAILABLE=false
 fi
 
-# Function to show error notification
+# Function to show error notification (dunstify/notify-send, else zenity/kdialog so file-manager launches still see errors)
 show_error_notification() {
     local error_message="$1"
     local err_timeout="${ERROR_NOTIFICATION_TIMEOUT:-15000}"
@@ -90,6 +90,10 @@ show_error_notification() {
         dunstify -u critical -t "$err_timeout" "VB App Error" "$error_message"
     elif [ "$NOTIFY_SEND_AVAILABLE" = true ]; then
         notify-send -u critical -t "$err_timeout" "VB App Error" "$error_message"
+    elif command -v zenity >/dev/null 2>&1; then
+        zenity --error --title "VB App Error" --text "$error_message" 2>/dev/null || true
+    elif command -v kdialog >/dev/null 2>&1; then
+        kdialog --title "VB App Error" --error "$error_message" 2>/dev/null || true
     else
         echo "Error: $error_message"
     fi
@@ -117,6 +121,7 @@ NOTIFICATION_TIMEOUT="${NOTIFICATION_TIMEOUT:-$((SCRIPT_TIMEOUT * 1000))}"
 VM_START_TIMEOUT="${VM_START_TIMEOUT:-300}"
 VM_START_POLL_INTERVAL="${VM_START_POLL_INTERVAL:-5}"
 ERROR_NOTIFICATION_TIMEOUT="${ERROR_NOTIFICATION_TIMEOUT:-15000}"
+NOTIFICATION_FOCUS_DELAY="${NOTIFICATION_FOCUS_DELAY:-0}"
 VM_POWERSHELL_EXE="${VM_POWERSHELL_EXE:-C:\\\\Windows\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe}"
 
 # Check if wmctrl is available
@@ -367,7 +372,7 @@ start_vm_and_wait() {
     fi
 }
 
-# Function to update notification message
+# Show success notification; only block/sleep when AUTO_FOCUS=true (short delay before focus so user sees notification)
 handle_notification() {
     app_name=$(basename "$1")
     debug "Showing notification for app: $app_name"
@@ -378,11 +383,12 @@ handle_notification() {
         notify-send -t "$NOTIFICATION_TIMEOUT" "VB App" "Virtualbox ${app_name} is ready."
     fi
 
-    # Wait for notification timeout
-    debug "Sleeping for NOTIFICATION_TIMEOUT: $((NOTIFICATION_TIMEOUT / 1000)) seconds"
-    sleep $((NOTIFICATION_TIMEOUT / 1000))
-
     if [ "$AUTO_FOCUS" = true ] && [ "$WMCTRL_AVAILABLE" = true ]; then
+        delay="${NOTIFICATION_FOCUS_DELAY:-0}"
+        if [[ -n "$delay" && "$delay" -gt 0 ]]; then
+            debug "Sleeping ${delay}s before focus"
+            sleep "$delay"
+        fi
         debug "Focusing VM window"
         focus_vm
         debug "VM window focused"
