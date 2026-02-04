@@ -1,7 +1,18 @@
 #!/bin/bash
+# Not using set -euo pipefail: when launched from file manager (no terminal) any early
+# exit (e.g. unset var, failed pipeline) would exit silently with no error shown.
 
 # Script version
 VERSION="0.1.8"
+
+# Constants
+MAX_VBOX_SHARES=20
+MAX_CONFIG_SHARES=10
+
+# Debug: only print when VB_LAUNCHER_DEBUG is set (e.g. VB_LAUNCHER_DEBUG=1 ./script.sh)
+debug() {
+    [[ -n "${VB_LAUNCHER_DEBUG:-}" ]] && echo "Debug: $*" >&2
+}
 
 # Function to display version
 show_version() {
@@ -45,6 +56,10 @@ if [[ "$INPUT_PATH" == file://* ]]; then
     # Decode %XX (e.g. %20 -> space)
     INPUT_PATH=$(printf '%b' "$(echo -n "$INPUT_PATH" | sed 's/%/\\x/g')")
 fi
+# Resolve to absolute path so shared-folder matching works (e.g. when opened with relative path from file manager)
+if [[ "$INPUT_PATH" != /* ]]; then
+    INPUT_PATH="$PWD/$INPUT_PATH"
+fi
 set -- "$INPUT_PATH"
 
 # XDG config directory; fall back to $HOME/.config if unset
@@ -87,7 +102,7 @@ if [ ! -f "$CONFIG_FILE" ]; then
 fi
 
 # Require config file not readable by others (contains password)
-config_perms=$(stat -c %a "$CONFIG_FILE" 2>/dev/null)
+config_perms=$(stat -c %a "$CONFIG_FILE" 2>/dev/null) || config_perms=""
 others_perm=$(( ${config_perms: -1} + 0 )) 2>/dev/null || others_perm=4
 if [ -z "$config_perms" ] || [ "$others_perm" -ne 0 ]; then
     show_error_notification "Config file has insecure permissions (readable by others). Fix: chmod 600 $CONFIG_FILE"
@@ -97,6 +112,8 @@ fi
 source "$CONFIG_FILE"
 
 # Optional config with defaults (so existing configs keep working)
+SCRIPT_TIMEOUT="${SCRIPT_TIMEOUT:-6}"
+NOTIFICATION_TIMEOUT="${NOTIFICATION_TIMEOUT:-$((SCRIPT_TIMEOUT * 1000))}"
 VM_START_TIMEOUT="${VM_START_TIMEOUT:-300}"
 VM_START_POLL_INTERVAL="${VM_START_POLL_INTERVAL:-5}"
 ERROR_NOTIFICATION_TIMEOUT="${ERROR_NOTIFICATION_TIMEOUT:-15000}"
@@ -109,6 +126,35 @@ else
     WMCTRL_AVAILABLE=false
 fi
 
+# Output "path|drive" (one per line) for every defined config share (VM_SHARE_PATH/VM_DRIVE_LETTER and VM_SHARE_PATH_2.._N).
+config_share_list() {
+    local i path_var drive_var path drive
+    if [[ -n "${VM_SHARE_PATH:-}" && -n "${VM_DRIVE_LETTER:-}" ]]; then
+        path="${VM_SHARE_PATH%/}"
+        drive="${VM_DRIVE_LETTER%:}"
+        printf '%s|%s\n' "$path" "$drive"
+    fi
+    for i in $(seq 2 "$MAX_CONFIG_SHARES"); do
+        path_var="VM_SHARE_PATH_$i"
+        drive_var="VM_DRIVE_LETTER_$i"
+        path="${!path_var:-}"
+        drive="${!drive_var:-}"
+        [[ -z "$path" || -z "$drive" ]] && continue
+        path="${path%/}"
+        drive="${drive%:}"
+        printf '%s|%s\n' "$path" "$drive"
+    done
+}
+
+# Format Windows path: given share_path (unix), drive_letter (G or G:), and full unix_path. Echoes e.g. G:\rest\path.
+format_windows_path() {
+    local share_path="$1" drive_letter="$2" unix_path="$3" rest
+    drive_letter="${drive_letter%:}"
+    rest="${unix_path#$share_path}"
+    rest="${rest#/}"
+    echo "${drive_letter}:\\$(echo "$rest" | sed 's|/|\\|g')"
+}
+
 # Query the guest for existing \\vboxsvr drive mappings via "net use" (same session that runs Invoke-Item).
 # Output: "sharename|letter" (e.g. g|G), one per line.
 get_guest_vbox_drive_mappings() {
@@ -118,16 +164,16 @@ get_guest_vbox_drive_mappings() {
     out=$(LC_ALL=C.UTF-8 VBoxManage guestcontrol "$VM_NAME" run --exe "$VM_POWERSHELL_EXE" --username "$VM_USER" --password "$VM_PASSWORD" --quiet -- -NoProfile -Command "$ps_cmd" 2>&1) || true
     # Strip CR (Windows line endings) so grep matches
     out="${out//$'\r'/}"
-    echo "$out" | grep -E '^[^|]+\|[A-Za-z]$'
+    echo "$out" | grep -E '^[^|]+\|[A-Za-z]$' || true
 }
 
 # Get VBox shared folders (path|name only), longest path first. No drive letters.
 get_vbox_shared_folders_raw() {
     local vbox_info path name i len
     vbox_info=$(VBoxManage showvminfo "$VM_NAME" --machinereadable 2>/dev/null) || return 1
-    for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
-        path=$(echo "$vbox_info" | grep "SharedFolderPathMachineMapping$i=" | sed 's/.*="\(.*\)"/\1/')
-        name=$(echo "$vbox_info" | grep "SharedFolderNameMachineMapping$i=" | sed 's/.*="\(.*\)"/\1/')
+    for i in $(seq 1 "$MAX_VBOX_SHARES"); do
+        path=$(echo "$vbox_info" | grep "SharedFolderPathMachineMapping$i=" | sed 's/.*="\(.*\)"/\1/') || path=""
+        name=$(echo "$vbox_info" | grep "SharedFolderNameMachineMapping$i=" | sed 's/.*="\(.*\)"/\1/') || name=""
         [[ -z "$path" || -z "$name" ]] && break
         path="${path%/}"
         len=${#path}
@@ -166,26 +212,16 @@ get_vbox_share_name_for_path() {
     return 1
 }
 
-# Build PowerShell "net use" commands. When config path is set: use config path+drive and VBox share names. When not: use guest-discovered path|name|letter.
+# Build PowerShell "net use" commands. When config has shares: use config_share_list + VBox share names. When not: use guest-discovered path|name|letter.
 build_net_use_ps() {
-    local path name letter share_name
-    if [[ -n "$VM_SHARE_PATH" && -n "$VM_DRIVE_LETTER" ]]; then
-        share_name=$(get_vbox_share_name_for_path "$VM_SHARE_PATH")
-        if [[ -n "$share_name" ]]; then
-            letter="${VM_DRIVE_LETTER%:}"
-            printf 'net use %s: \\\\vboxsvr\\\\%s 2>\$null; ' "$letter" "$share_name"
-        fi
-        for i in 2 3 4 5 6 7 8 9 10; do
-            path_var="VM_SHARE_PATH_$i"
-            drive_var="VM_DRIVE_LETTER_$i"
-            path="${!path_var}"
-            drive="${!drive_var}"
+    local path drive share_name
+    if config_share_list | grep -q .; then
+        while IFS='|' read -r path drive; do
             [[ -z "$path" || -z "$drive" ]] && continue
             share_name=$(get_vbox_share_name_for_path "$path")
             [[ -z "$share_name" ]] && continue
-            letter="${drive%:}"
-            printf 'net use %s: \\\\vboxsvr\\\\%s 2>\$null; ' "$letter" "$share_name"
-        done
+            printf 'net use %s: \\\\vboxsvr\\\\%s 2>\$null; ' "$drive" "$share_name"
+        done < <(config_share_list)
         return 0
     fi
     while IFS='|' read -r path name letter; do
@@ -194,55 +230,30 @@ build_net_use_ps() {
     done < <(get_vbox_shared_folders_with_guest_letters)
 }
 
-# Function to convert Unix path to Windows path.
-# 1) If config has VM_SHARE_PATH / VM_DRIVE_LETTER (or _2, …): use only those, no guest discovery.
-# 2) Else: use only existing \\vboxsvr drive mappings from the guest (discover, no arbitrary letters).
+# Convert Unix path to Windows path.
+# 1) If config has any VM_SHARE_PATH/VM_DRIVE_LETTER: use only those, no guest discovery.
+# 2) Else: use only guest-discovered \\vboxsvr mappings (autodiscover).
 # Returns 0 and echoes path on success; returns 1 on failure (caller must exit).
 unix_to_windows_path() {
     local unix_path="$1"
-    local share drive rest path name letter i
+    local path drive name letter config_list
+    config_list=$(config_share_list)
 
-    # 1) Config path set: use only config, do not autodiscover
-    if [[ -n "$VM_SHARE_PATH" && -n "$VM_DRIVE_LETTER" ]]; then
-        share="${VM_SHARE_PATH%/}"
-        if [[ "$unix_path" == "$share"/* || "$unix_path" == "$share" ]]; then
-            rest="${unix_path#$share}"
-            rest="${rest#/}"
-            echo "${VM_DRIVE_LETTER}\\$(echo "$rest" | sed 's|/|\\|g')"
-            return 0
-        fi
-    fi
-    for i in 2 3 4 5 6 7 8 9 10; do
-        share_var="VM_SHARE_PATH_$i"
-        drive_var="VM_DRIVE_LETTER_$i"
-        share="${!share_var}"
-        drive="${!drive_var}"
-        [[ -z "$share" || -z "$drive" ]] && continue
-        share="${share%/}"
-        if [[ "$unix_path" == "$share"/* || "$unix_path" == "$share" ]]; then
-            rest="${unix_path#$share}"
-            rest="${rest#/}"
-            echo "${drive}\\$(echo "$rest" | sed 's|/|\\|g')"
-            return 0
-        fi
-    done
-
-    # 2) No shares in config: use only guest-discovered \\vboxsvr mappings (autodiscover). If any VM_SHARE_PATH* is set, we do NOT autodiscover.
-    config_has_shares=false
-    [[ -n "$VM_SHARE_PATH" && -n "$VM_DRIVE_LETTER" ]] && config_has_shares=true
-    for i in 2 3 4 5 6 7 8 9 10; do
-        path_var="VM_SHARE_PATH_$i"
-        drive_var="VM_DRIVE_LETTER_$i"
-        [[ -n "${!path_var}" && -n "${!drive_var}" ]] && { config_has_shares=true; break; }
-    done
-
-    if [[ "$config_has_shares" != true ]]; then
+    # 1) Config shares: use only config list
+    if [[ -n "$config_list" ]]; then
+        while IFS='|' read -r path drive; do
+            [[ -z "$path" || -z "$drive" ]] && continue
+            if [[ "$unix_path" == "$path"/* || "$unix_path" == "$path" ]]; then
+                format_windows_path "$path" "$drive" "$unix_path"
+                return 0
+            fi
+        done <<< "$config_list"
+    else
+        # 2) No config shares: use only guest-discovered mappings (autodiscover)
         while IFS='|' read -r path name letter; do
             [[ -z "$path" || -z "$name" || -z "$letter" ]] && continue
             if [[ "$unix_path" == "$path"/* || "$unix_path" == "$path" ]]; then
-                rest="${unix_path#$path}"
-                rest="${rest#/}"
-                echo "${letter}:\\$(echo "$rest" | sed 's|/|\\|g')"
+                format_windows_path "$path" "$letter" "$unix_path"
                 return 0
             fi
         done < <(get_vbox_shared_folders_with_guest_letters)
@@ -272,7 +283,7 @@ open_file_with_shell_execute() {
     # If path uses a drive letter (e.g. G:\...), map UNC in same session so "net use G: \\vboxsvr\share" runs before Invoke-Item
     net_use_ps=$(build_net_use_ps)
     powershell_command="${net_use_ps}\$p=[System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('$encoded')); Invoke-Item -LiteralPath \$p"
-    echo "Debug: Running PowerShell command for path (length ${#windows_file})" >&2
+    debug "Running PowerShell command for path (length ${#windows_file})"
 
     # Ensure UTF-8 when passing to VBoxManage
     output=$(LC_ALL=C.UTF-8 VBoxManage guestcontrol "$VM_NAME" run --exe "$VM_POWERSHELL_EXE" --username "$VM_USER" --password "$VM_PASSWORD" --quiet -- -Command "$powershell_command" 2>&1)
@@ -297,8 +308,8 @@ open_file_with_shell_execute() {
         fi
     fi
 
-    if [ -n "$APP_LOAD_DELAY" ] && [ "$APP_LOAD_DELAY" -gt 0 ]; then
-        echo "Debug: Sleeping for APP_LOAD_DELAY: $APP_LOAD_DELAY seconds" >&2
+    if [ -n "${APP_LOAD_DELAY:-}" ] && [ "$APP_LOAD_DELAY" -gt 0 ]; then
+        debug "Sleeping for APP_LOAD_DELAY: $APP_LOAD_DELAY seconds"
         sleep "$APP_LOAD_DELAY"  # Wait for the specified delay
     fi
 }
@@ -306,7 +317,7 @@ open_file_with_shell_execute() {
 # Function to focus the VM window
 focus_vm() {
     if [ "$WMCTRL_AVAILABLE" = true ]; then
-        window_id=$(wmctrl -l | grep "$VM_NAME" | awk '{print $1;}' | head -1)
+        window_id=$(wmctrl -l | grep "$VM_NAME" | awk '{print $1}' | head -1) || true
         if [ -n "$window_id" ]; then
             wmctrl -ia "$window_id"
         fi
@@ -326,7 +337,7 @@ check_user_logged_in() {
 # Function to start VM and wait for it to be ready
 start_vm_and_wait() {
     if ! ( VBoxManage showvminfo "$VM_NAME" | grep -c "running (since" ) > /dev/null 2>&1; then
-        echo "Debug: Starting VM with GUI" >&2
+        debug "Starting VM with GUI"
         VBoxManage startvm "$VM_NAME" --type gui > /dev/null
 
         start_time=$(date +%s)
@@ -342,24 +353,24 @@ start_vm_and_wait() {
                 exit 1
             fi
 
-            vm_state=$(VBoxManage showvminfo "$VM_NAME" --machinereadable | grep ^VMState=)
+            vm_state=$(VBoxManage showvminfo "$VM_NAME" --machinereadable | grep ^VMState=) || vm_state=""
 
             if [[ "$vm_state" == 'VMState="running"' ]] && check_user_logged_in; then
-                echo "Debug: VM is running and user is logged in" >&2
+                debug "VM is running and user is logged in"
                 break
             fi
 
             sleep "$VM_START_POLL_INTERVAL"
         done
     else
-        echo "Debug: VM is already running" >&2
+        debug "VM is already running"
     fi
 }
 
 # Function to update notification message
 handle_notification() {
     app_name=$(basename "$1")
-    echo "Debug: Showing notification for app: $app_name" >&2
+    debug "Showing notification for app: $app_name"
 
     if [ "$DUNSTIFY_AVAILABLE" = true ]; then
         dunstify -A "default,Focus VM" -t "$NOTIFICATION_TIMEOUT" "VB App" "Virtualbox ${app_name} is ready."
@@ -368,36 +379,28 @@ handle_notification() {
     fi
 
     # Wait for notification timeout
-    echo "Debug: Sleeping for NOTIFICATION_TIMEOUT: $((NOTIFICATION_TIMEOUT / 1000)) seconds" >&2
+    debug "Sleeping for NOTIFICATION_TIMEOUT: $((NOTIFICATION_TIMEOUT / 1000)) seconds"
     sleep $((NOTIFICATION_TIMEOUT / 1000))
 
     if [ "$AUTO_FOCUS" = true ] && [ "$WMCTRL_AVAILABLE" = true ]; then
-        echo "Debug: Focusing VM window" >&2
+        debug "Focusing VM window"
         focus_vm
-        echo "Debug: VM window focused" >&2
+        debug "VM window focused"
     fi
 }
 
-if [ -f "$1" ]; then
+# Single code path for file or directory: resolve path, start VM, convert path, open in guest, notify
+if [[ -f "$1" || -d "$1" ]]; then
     start_vm_and_wait
-    WINDOWS_FILE=$(unix_to_windows_path "$1") || exit 1
-    echo "Debug: Starting application launch" >&2
-    open_file_with_shell_execute "$WINDOWS_FILE"
-    echo "Debug: Application launch command sent" >&2
-    handle_notification "$1"
-    echo "Debug: Notification handled" >&2
-elif [ -d "$1" ]; then
     WINDOWS_PATH=$(unix_to_windows_path "$1") || exit 1
-    echo "Debug: Starting directory open" >&2
+    debug "Starting launch"
     open_file_with_shell_execute "$WINDOWS_PATH"
-    echo "Debug: Directory open command sent" >&2
+    debug "Launch command sent"
     handle_notification "$1"
-    echo "Debug: Notification handled" >&2
+    debug "Script completed"
 else
     show_error_notification "File or directory not found: $1"
     exit 1
 fi
-
-echo "Debug: Script completed, exiting" >&2
 
 exit 0
