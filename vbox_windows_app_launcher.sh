@@ -38,21 +38,8 @@ elif [ -z "$1" ]; then
     exit 1
 fi
 
-# Load configuration from ~/.config/vbox_windows_app_launcher.conf
+# Config file path and notification setup (needed before config load for permission-error notification)
 CONFIG_FILE="$HOME/.config/vbox_windows_app_launcher.conf"
-if [ -f "$CONFIG_FILE" ]; then
-    source "$CONFIG_FILE"
-else
-    echo "Configuration file not found: $CONFIG_FILE"
-    exit 1
-fi
-
-# Check if wmctrl is available
-if command -v wmctrl >/dev/null 2>&1; then
-    WMCTRL_AVAILABLE=true
-else
-    WMCTRL_AVAILABLE=false
-fi
 
 # Check if dunstify is available
 if command -v dunstify >/dev/null 2>&1; then
@@ -79,6 +66,29 @@ show_error_notification() {
         echo "Error: $error_message"
     fi
 }
+
+# Load configuration from ~/.config/vbox_windows_app_launcher.conf
+if [ ! -f "$CONFIG_FILE" ]; then
+    show_error_notification "Configuration file not found: $CONFIG_FILE"
+    exit 1
+fi
+
+# Require config file not readable by others (contains password)
+config_perms=$(stat -c %a "$CONFIG_FILE" 2>/dev/null)
+others_perm=$(( ${config_perms: -1} + 0 )) 2>/dev/null || others_perm=4
+if [ -z "$config_perms" ] || [ "$others_perm" -ne 0 ]; then
+    show_error_notification "Config file has insecure permissions (readable by others). Fix: chmod 600 $CONFIG_FILE"
+    exit 1
+fi
+
+source "$CONFIG_FILE"
+
+# Check if wmctrl is available
+if command -v wmctrl >/dev/null 2>&1; then
+    WMCTRL_AVAILABLE=true
+else
+    WMCTRL_AVAILABLE=false
+fi
 
 # Function to convert Unix path to Windows path
 unix_to_windows_path() {

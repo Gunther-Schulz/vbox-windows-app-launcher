@@ -23,15 +23,40 @@ This project was inspired by andpy73, sbnwl, 3Pilif, and TVG and is based on thi
 
 ## Installation
 
+### From AUR (Arch Linux)
+
+```bash
+yay -S vbox-windows-app-launcher-git
+# or
+paru -S vbox-windows-app-launcher-git
+```
+
+Then create your config (see [Configuration](#configuration) below). If you already have a user account, copy the sample and set permissions:
+
+```bash
+mkdir -p ~/.config
+cp /etc/skel/.config/vbox-windows-app-launcher/vbox-windows-app-launcher.conf.sample ~/.config/vbox_windows_app_launcher.conf
+chmod 600 ~/.config/vbox_windows_app_launcher.conf
+# Edit and add your VM name, user, password, and paths
+```
+
+### Manual installation
+
 1. Clone this repository or download the script files.
 2. Make sure you have VirtualBox installed on your system.
-3. Install the optional dependencie if you want auto-focus or desktop notifications. For example in Arch Linux:
+3. Install the optional dependencies if you want auto-focus or desktop notifications. For example on Arch Linux:
    ```bash
    sudo pacman -S dunst wmctrl
    ```
-   - dunst: notification daemon used for desktop notifications
-   - wmctrl: window manager control used for automatic window focus
-4. Copy `vbox_windows_app_launcher.conf.sample` to `~/.config/vbox_windows_app_launcher.conf` and edit it with your settings.
+   - **dunst**: notification daemon used for desktop notifications
+   - **wmctrl**: window manager control used for automatic window focus
+4. Copy the sample config and restrict permissions (the config contains your VM password; the script will refuse to run if the file is readable by others):
+   ```bash
+   mkdir -p ~/.config
+   cp vbox_windows_app_launcher.conf.sample ~/.config/vbox_windows_app_launcher.conf
+   chmod 600 ~/.config/vbox_windows_app_launcher.conf
+   ```
+   Then edit `~/.config/vbox_windows_app_launcher.conf` with your settings.
 5. Make the script executable:
    ```bash
    chmod +x vbox_windows_app_launcher.sh
@@ -51,21 +76,18 @@ This project was inspired by andpy73, sbnwl, 3Pilif, and TVG and is based on thi
      ```bash
      sudo cp open-windows-app-in-vm.desktop /usr/share/applications/
      ```
-8. Update the desktop database:
+8. Update the desktop database (for local installation):
    ```bash
    update-desktop-database ~/.local/share/applications
    ```
 
 ## Usage
 
-1. Configure your settings in `~/.config/vbox_windows_app_launcher.conf`.
+1. Configure your settings in `~/.config/vbox_windows_app_launcher.conf` (and ensure permissions are `600`).
 
-2. Double-click on any file or folder to open it in the VM
-
-or run the script directly:
-   ```bash
-   ./vbox_windows_app_launcher.sh /path/to/your/file_or_folder
-   ```
+2. Double-click on any file or folder to open it in the VM, or run the script directly:
+   - If installed via AUR: `vbox-windows-app-launcher /path/to/file_or_folder`
+   - If run from repo: `./vbox_windows_app_launcher.sh /path/to/file_or_folder`
 
 The script will automatically use the appropriate application in the VM to open the file or folder.
 
@@ -82,7 +104,9 @@ Edit `~/.config/vbox_windows_app_launcher.conf` with your specific settings:
 - `SCRIPT_TIMEOUT`: Timeout for the script in seconds
 - `NOTIFICATION_TIMEOUT`: Timeout for notifications in milliseconds
 
-Check out the `vbox_windows_app_launcher.conf.sample` file for more details.
+**Config file permissions:** The file contains your VM password. It must not be readable by others (e.g. `chmod 600 ~/.config/vbox_windows_app_launcher.conf`). The script checks this on launch and shows a desktop notification and exits if permissions are too loose.
+
+See `vbox_windows_app_launcher.conf.sample` for more details and optional `CUSTOM_APPS` mappings.
 
 ## Requirements
 
@@ -95,7 +119,18 @@ Check out the `vbox_windows_app_launcher.conf.sample` file for more details.
 - wmctrl (for window management)
 
 ## Troubleshooting
-If you encouter the following error:
+
+### Config file permissions
+
+If the script shows a notification like *"Config file has insecure permissions (readable by others)"*, fix it with:
+
+```bash
+chmod 600 ~/.config/vbox_windows_app_launcher.conf
+```
+
+### Guest login restricted
+
+If you encounter the following error:
 ```
 VBoxManage: error: Waiting for guest process failed: The specified user account on the guest is restricted and can't be used to logon
 VBoxManage: error: Details: code VBOX_E_IPRT_ERROR (0x80bb0005), component GuestSessionWrap, interface IGuestSession, callee nsISupports
