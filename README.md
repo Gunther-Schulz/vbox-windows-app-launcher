@@ -31,12 +31,12 @@ yay -S vbox-windows-app-launcher-git
 paru -S vbox-windows-app-launcher-git
 ```
 
-Then create your config (see [Configuration](#configuration) below). If you already have a user account, copy the sample and set permissions:
+Then create your config (see [Configuration](#configuration) below). If you already have a user account, copy the sample and set permissions (config path follows [XDG](https://specifications.freedesktop.org/basedir-spec/latest/); default is `~/.config/`):
 
 ```bash
-mkdir -p ~/.config
-cp /etc/skel/.config/vbox-windows-app-launcher/vbox-windows-app-launcher.conf.sample ~/.config/vbox_windows_app_launcher.conf
-chmod 600 ~/.config/vbox_windows_app_launcher.conf
+mkdir -p "${XDG_CONFIG_HOME:-$HOME/.config}"
+cp /etc/skel/.config/vbox-windows-app-launcher/vbox-windows-app-launcher.conf.sample "${XDG_CONFIG_HOME:-$HOME/.config}/vbox_windows_app_launcher.conf"
+chmod 600 "${XDG_CONFIG_HOME:-$HOME/.config}/vbox_windows_app_launcher.conf"
 # Edit and add your VM name, user, password, and paths
 ```
 
@@ -50,13 +50,13 @@ chmod 600 ~/.config/vbox_windows_app_launcher.conf
    ```
    - **dunst**: notification daemon used for desktop notifications
    - **wmctrl**: window manager control used for automatic window focus
-4. Copy the sample config and restrict permissions (the config contains your VM password; the script will refuse to run if the file is readable by others):
+4. Copy the sample config and restrict permissions (the config contains your VM password; the script will refuse to run if the file is readable by others). Config path uses `$XDG_CONFIG_HOME` (default `~/.config/`):
    ```bash
-   mkdir -p ~/.config
-   cp vbox_windows_app_launcher.conf.sample ~/.config/vbox_windows_app_launcher.conf
-   chmod 600 ~/.config/vbox_windows_app_launcher.conf
+   mkdir -p "${XDG_CONFIG_HOME:-$HOME/.config}"
+   cp vbox_windows_app_launcher.conf.sample "${XDG_CONFIG_HOME:-$HOME/.config}/vbox_windows_app_launcher.conf"
+   chmod 600 "${XDG_CONFIG_HOME:-$HOME/.config}/vbox_windows_app_launcher.conf"
    ```
-   Then edit `~/.config/vbox_windows_app_launcher.conf` with your settings.
+   Then edit the config file with your settings.
 5. Make the script executable:
    ```bash
    chmod +x vbox_windows_app_launcher.sh
@@ -83,7 +83,7 @@ chmod 600 ~/.config/vbox_windows_app_launcher.conf
 
 ## Usage
 
-1. Configure your settings in `~/.config/vbox_windows_app_launcher.conf` (and ensure permissions are `600`).
+1. Configure your settings in `$XDG_CONFIG_HOME/vbox_windows_app_launcher.conf` (default `~/.config/...`; permissions must be `600`). **Path mapping is optional:** if you set no `VM_SHARE_PATH` / `VM_DRIVE_LETTER`, the script discovers drive letters from the guest (runs `net use` in the VM and parses the output). If you set `VM_SHARE_PATH` and `VM_DRIVE_LETTER` (or `_2`, …), only those paths are used and no autodiscovery is done.
 
 2. Double-click on any file or folder to open it in the VM, or run the script directly:
    - If installed via AUR: `vbox-windows-app-launcher /path/to/file_or_folder`
@@ -93,20 +93,21 @@ The script will automatically use the appropriate application in the VM to open 
 
 ## Configuration
 
-Edit `~/.config/vbox_windows_app_launcher.conf` with your specific settings:
+Edit `$XDG_CONFIG_HOME/vbox_windows_app_launcher.conf` (default `~/.config/vbox_windows_app_launcher.conf`) with your specific settings:
 
 - `VM_NAME`: Name of your VirtualBox VM
 - `VM_USER`: Username in the VM
 - `VM_PASSWORD`: Password for the VM user
-- `VM_SHARE_PATH`: Path to shared folder on host
-- `VM_DRIVE_LETTER`: Drive letter for shared folder in VM
+- Path mapping (optional): if **not** set, the script discovers drive letters from the guest (`net use` in the VM). If set (`VM_SHARE_PATH` + `VM_DRIVE_LETTER`, and optional `VM_SHARE_PATH_2` + `VM_DRIVE_LETTER_2`, …), only those paths are used and no autodiscovery is done.
 - `AUTO_FOCUS`: Set to true/false to enable/disable automatic window focus
 - `SCRIPT_TIMEOUT`: Timeout for the script in seconds
 - `NOTIFICATION_TIMEOUT`: Timeout for notifications in milliseconds
 
-**Config file permissions:** The file contains your VM password. It must not be readable by others (e.g. `chmod 600 ~/.config/vbox_windows_app_launcher.conf`). The script checks this on launch and shows a desktop notification and exits if permissions are too loose.
+Optional (see sample config for defaults): `VM_START_TIMEOUT`, `VM_START_POLL_INTERVAL`, `ERROR_NOTIFICATION_TIMEOUT`, `VM_POWERSHELL_EXE`.
 
-See `vbox_windows_app_launcher.conf.sample` for more details and optional `CUSTOM_APPS` mappings.
+**Config file permissions:** The file contains your VM password. It must not be readable by others (e.g. `chmod 600` on the config file). The script checks this on launch and shows a desktop notification and exits if permissions are too loose.
+
+See `vbox_windows_app_launcher.conf.sample` for the full list of options.
 
 ## Requirements
 
@@ -125,7 +126,7 @@ See `vbox_windows_app_launcher.conf.sample` for more details and optional `CUSTO
 If the script shows a notification like *"Config file has insecure permissions (readable by others)"*, fix it with:
 
 ```bash
-chmod 600 ~/.config/vbox_windows_app_launcher.conf
+chmod 600 "${XDG_CONFIG_HOME:-$HOME/.config}/vbox_windows_app_launcher.conf"
 ```
 
 ### Guest login restricted
@@ -156,4 +157,4 @@ For support, please open an issue in the GitHub repository or contact the mainta
 
 ## Desktop Integration
 
-The `open-windows-app-in-vm.desktop` file provides desktop integration for easy file opening. It associates common file types with the launcher script.
+The `open-windows-app-in-vm.desktop` file provides desktop integration for easy file opening. It associates common file types (Office, PDF, AutoCAD/DXF, Adobe PSD/AI/INDD/EPS) with the launcher. The script accepts both plain paths and `file://` URLs from the file manager.

@@ -2,9 +2,9 @@
 Type=Application
 Name=Open App in Windows VM
 Comment=Open files in associated Windows applications using a VM
-Exec=/your/script/path/vbox_windows_app_launcher.sh %f
+Exec=vbox-windows-app-launcher %f
 Icon=virtualbox
 Terminal=false
 Categories=Office;Utility;
-MimeType=application/msword;application/vnd.openxmlformats-officedocument.wordprocessingml.document;application/vnd.ms-excel;application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;application/vnd.ms-powerpoint;application/vnd.openxmlformats-officedocument.presentationml.presentation;application/vnd.openxmlformats-officedocument.drawingml.drawing;application/pdf;application/x-autocad;image/vnd.dxf;
+MimeType=application/msword;application/vnd.openxmlformats-officedocument.wordprocessingml.document;application/vnd.ms-excel;application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;application/vnd.ms-powerpoint;application/vnd.openxmlformats-officedocument.presentationml.presentation;application/vnd.openxmlformats-officedocument.drawingml.drawing;application/pdf;application/x-autocad;image/vnd.dxf;image/vnd.adobe.photoshop;application/illustrator;application/x-indesign;application/postscript;application/vnd.adobe.indesign-idml-package;
 X-Desktop-File-Install-Version=0.28
